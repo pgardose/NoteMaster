@@ -131,7 +131,7 @@ notemaster-ai-pro/
 
 ### 1. Clone the repository
 ```
-git clone https://github.com/your-username/notemaster-ai-pro.git
+git clone https://github.com/pgardose/NoteMaster.git
 cd notemaster-ai-pro
 ```
 
