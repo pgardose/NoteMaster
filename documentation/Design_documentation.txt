@@ -1,0 +1,214 @@
+Design Overview
+Project Purpose
+
+This project is a full-stack AI-powered web application designed to help students summarize and organize study notes efficiently. It combines a modern front-end interface with a Flask backend and integrates Google’s Gemini API for natural language processing.
+
+The system was developed iteratively, progressing from version 1.1 to version 2, with each version improving structure, maintainability, and real-world applicability.
+
+System Architecture Overview
+
+The application follows a client–server architecture:
+
+Frontend
+
+Built using HTML, CSS (Tailwind), and JavaScript
+
+Handles user interaction, UI rendering, and API requests
+
+Backend
+
+Built with Flask (Python)
+
+Manages API endpoints, business logic, and data flow
+
+AI Layer
+
+Google Gemini API
+
+Responsible for summarization and conversational responses
+
+Version 1.1 Design
+Overview
+
+Version 1.1 focuses on delivering core functionality with a straightforward implementation.
+
+Characteristics
+
+Direct API calls from the frontend to the Flask backend
+
+Minimal separation between UI logic and application logic
+
+Basic state handling on the client side
+
+Strengths
+
+Simple and easy to understand
+
+Faster development time
+
+Effective proof of concept
+
+Limitations
+
+Harder to scale as features increase
+
+Some tightly coupled logic between UI and data handling
+
+Limited extensibility for advanced features
+
+Version 2 Design
+Overview
+
+Version 2 emphasizes clean architecture and scalability, while remaining appropriate for a student project.
+
+Improvements
+
+Better separation of frontend logic and backend responsibilities
+
+More organized JavaScript structure for state management
+
+Cleaner Flask routes with clearer responsibilities
+
+Improved API request and response handling
+
+Trade-offs
+
+Slightly more complex than v1.1
+
+Requires better understanding of frontend–backend communication
+
+Still under evaluation to avoid unnecessary overengineering
+
+Backend Design
+Flask Responsibilities
+
+Handle note summarization requests
+
+Communicate securely with the Gemini API
+
+Manage saved notes, tags, and chat interactions
+
+Validate input and return structured JSON responses
+
+API Endpoints (High-Level)
+
+/api/summarize – Sends notes or uploaded files to Gemini for summarization
+
+/api/notes – Create, retrieve, filter, and delete notes
+
+/api/tags – Manage note categorization
+
+/api/notes/<id>/chat – Context-aware AI chat based on saved notes
+
+Design Decision Summary
+Aspect	Version 1.1	Version 2
+Architecture	Basic	More structured
+Scalability	Limited	Improved
+Maintainability	Moderate	High
+Learning Focus	Fundamentals	Real-world practices
+
+Version 1.1 serves as a functional baseline, while version 2 aims to reflect industry-style design decisions in a manageable way for a student developer.
+
+README
+Project Title
+
+NoteMaster AI – AI-Powered Study Note Summarizer
+
+Description
+
+NoteMaster AI is a full-stack web application that allows users to summarize study notes, organize them with tags, and interact with their content using AI. The system uses a Flask backend integrated with Google’s Gemini API to generate summaries and provide contextual chat responses.
+
+This project was built as both a learning tool and a portfolio project to demonstrate practical full-stack development skills.
+
+Features
+
+AI-powered note summarization
+
+Text input and file upload support
+
+Tag-based note organization
+
+Search and filter functionality
+
+Context-aware chat with saved notes
+
+Modern and responsive UI
+
+Technologies Used
+Frontend
+
+HTML
+
+Tailwind CSS
+
+JavaScript
+
+Backend
+
+Python
+
+Flask
+
+AI Integration
+
+Google Gemini API
+
+Project Structure
+project-root/
+│── app.py
+│── templates/
+│   └── index.html
+│── static/
+│   ├── script.js
+│   └── styles.css
+│── requirements.txt
+
+How to Run the Project
+
+Clone the repository
+
+Create and activate a virtual environment
+
+Install dependencies
+
+pip install -r requirements.txt
+
+
+Set your Gemini API key as an environment variable
+
+Run the Flask application
+
+flask run
+
+
+Open the application in your browser
+
+Versioning
+
+v1.1 – Functional prototype with core features
+
+v2 – Improved structure, scalability, and maintainability
+
+Both versions are retained to demonstrate design evolution and learning progress.
+
+Limitations
+
+No authentication system
+
+Intended for educational use
+
+AI responses depend on external API availability
+
+Future Improvements
+
+User authentication and accounts
+
+Database optimization
+
+Rate limiting and API error handling
+
+Deployment to a cloud platform
+
+Author
+
+Developed as a student full-stack project to explore AI integration, Flask backend development, and modern front-end design.

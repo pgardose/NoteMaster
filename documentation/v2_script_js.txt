@@ -1,0 +1,431 @@
+// ============================================
+// STATE MANAGEMENT
+// ============================================
+let currentNoteId = null;
+let allNotes = [];
+let allTags = [];
+
+// ============================================
+// DOM ELEMENTS
+// ============================================
+const elements = {
+    // Nav
+    newNoteBtn: document.getElementById('newNoteBtn'),
+    myNotesBtn: document.getElementById('myNotesBtn'),
+    
+    // Sections
+    newNoteSection: document.getElementById('newNoteSection'),
+    myNotesSection: document.getElementById('myNotesSection'),
+    
+    // Tabs
+    textTabBtn: document.getElementById('textTabBtn'),
+    fileTabBtn: document.getElementById('fileTabBtn'),
+    textInput: document.getElementById('textInput'),
+    fileInput: document.getElementById('fileInput'),
+    
+    // Input Fields
+    notesInput: document.getElementById('notesInput'),
+    charCounter: document.getElementById('charCounter'),
+    fileUpload: document.getElementById('fileUpload'),
+    fileName: document.getElementById('fileName'),
+    dropZone: document.getElementById('dropZone'),
+    
+    // Buttons
+    summarizeBtn: document.getElementById('summarizeBtn'),
+    copyBtn: document.getElementById('copyBtn'),
+    saveBtn: document.getElementById('saveBtn'),
+    
+    // Output States
+    outputSection: document.getElementById('outputSection'),
+    summaryOutput: document.getElementById('summaryOutput'),
+    loading: document.getElementById('loading'),
+    errorSection: document.getElementById('errorSection'),
+    errorMessage: document.getElementById('errorMessage'),
+    
+    // My Notes View
+    searchInput: document.getElementById('searchInput'),
+    tagFilter: document.getElementById('tagFilter'),
+    notesGrid: document.getElementById('notesGrid'),
+    emptyState: document.getElementById('emptyState'),
+    
+    // Modals
+    noteModal: document.getElementById('noteModal'),
+    modalTitle: document.getElementById('modalTitle'),
+    modalTags: document.getElementById('modalTags'),
+    closeModalBtn: document.getElementById('closeModalBtn'),
+    closeModal: document.getElementById('closeModal'),
+    deleteNoteBtn: document.getElementById('deleteNoteBtn'),
+    
+    // Modal Content
+    summaryTab: document.getElementById('summaryTab'),
+    originalTab: document.getElementById('originalTab'),
+    chatTab: document.getElementById('chatTab'),
+    summaryContent: document.getElementById('summaryContent'),
+    originalContent: document.getElementById('originalContent'),
+    originalText: document.getElementById('originalText'),
+    chatContent: document.getElementById('chatContent'),
+    chatMessages: document.getElementById('chatMessages'),
+    chatInput: document.getElementById('chatInput'),
+    sendChatBtn: document.getElementById('sendChatBtn'),
+    
+    // Toast
+    toastContainer: document.getElementById('toastContainer'),
+    
+    // Tag Creation
+    createTagModal: document.getElementById('createTagModal'),
+    newTagName: document.getElementById('newTagName'),
+    newTagColor: document.getElementById('newTagColor'),
+    newTagColorHex: document.getElementById('newTagColorHex'),
+    createTagBtn: document.getElementById('createTagBtn'),
+    cancelTagBtn: document.getElementById('cancelTagBtn')
+};
+
+// ============================================
+// INITIALIZATION
+// ============================================
+document.addEventListener('DOMContentLoaded', () => {
+    setupEventListeners();
+    initializeLucideIcons();
+    loadTags(); // Assuming existing backend endpoint exists
+    
+    // Default to text input
+    toggleInputMode('text');
+});
+
+function initializeLucideIcons() {
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// ============================================
+// EVENT LISTENERS
+// ============================================
+function setupEventListeners() {
+    // Navigation
+    elements.newNoteBtn.addEventListener('click', () => switchSection('new'));
+    elements.myNotesBtn.addEventListener('click', () => switchSection('library'));
+    
+    // Input Modes
+    elements.textTabBtn.addEventListener('click', () => toggleInputMode('text'));
+    elements.fileTabBtn.addEventListener('click', () => toggleInputMode('file'));
+    
+    // Character Counter
+    elements.notesInput.addEventListener('input', updateCharCounter);
+    
+    // File Upload Logic
+    elements.fileUpload.addEventListener('change', handleFileSelect);
+    setupDragAndDrop();
+    
+    // Core Actions
+    elements.summarizeBtn.addEventListener('click', summarizeNotes);
+    elements.copyBtn?.addEventListener('click', copySummary);
+    elements.saveBtn?.addEventListener('click', saveNote);
+    
+    // Search & Filter
+    elements.searchInput.addEventListener('input', debounce(filterNotes, 300));
+    elements.tagFilter.addEventListener('change', filterNotes);
+    
+    // Modal Interactions
+    elements.closeModalBtn.addEventListener('click', closeNoteModal);
+    elements.closeModal.addEventListener('click', closeNoteModal);
+    elements.deleteNoteBtn.addEventListener('click', deleteNote);
+    
+    // Modal Tabs
+    elements.summaryTab.addEventListener('click', () => switchModalTab('summary'));
+    elements.originalTab.addEventListener('click', () => switchModalTab('original'));
+    elements.chatTab.addEventListener('click', () => switchModalTab('chat'));
+    
+    // Chat
+    elements.sendChatBtn.addEventListener('click', sendChatMessage);
+    elements.chatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendChatMessage();
+    });
+
+    // Tag Creation
+    elements.createTagBtn.addEventListener('click', createNewTag);
+    elements.cancelTagBtn.addEventListener('click', () => elements.createTagModal.classList.add('hidden'));
+    
+    // Color Picker Sync
+    elements.newTagColor.addEventListener('input', (e) => elements.newTagColorHex.value = e.target.value);
+}
+
+// ============================================
+// UI LOGIC
+// ============================================
+
+function switchSection(section) {
+    if (section === 'new') {
+        elements.newNoteSection.classList.remove('hidden');
+        elements.myNotesSection.classList.add('hidden');
+        
+        // Button States
+        elements.newNoteBtn.classList.replace('bg-dark-700', 'bg-dark-700'); // Reset
+        elements.newNoteBtn.classList.add('bg-dark-700', 'text-white', 'shadow-sm');
+        elements.newNoteBtn.classList.remove('text-slate-400', 'hover:bg-white/5');
+        
+        elements.myNotesBtn.classList.remove('bg-dark-700', 'text-white', 'shadow-sm');
+        elements.myNotesBtn.classList.add('text-slate-400', 'hover:bg-white/5');
+    } else {
+        elements.newNoteSection.classList.add('hidden');
+        elements.myNotesSection.classList.remove('hidden');
+        loadNotes();
+        
+        // Button States
+        elements.myNotesBtn.classList.add('bg-dark-700', 'text-white', 'shadow-sm');
+        elements.myNotesBtn.classList.remove('text-slate-400', 'hover:bg-white/5');
+        
+        elements.newNoteBtn.classList.remove('bg-dark-700', 'text-white', 'shadow-sm');
+        elements.newNoteBtn.classList.add('text-slate-400', 'hover:bg-white/5');
+    }
+}
+
+function toggleInputMode(mode) {
+    if (mode === 'text') {
+        elements.textInput.classList.remove('hidden');
+        elements.fileInput.classList.add('hidden');
+        
+        elements.textTabBtn.classList.add('bg-dark-700', 'text-white', 'shadow-lg');
+        elements.textTabBtn.classList.remove('text-slate-400', 'hover:text-white', 'hover:bg-white/5');
+        
+        elements.fileTabBtn.classList.remove('bg-dark-700', 'text-white', 'shadow-lg');
+        elements.fileTabBtn.classList.add('text-slate-400', 'hover:text-white', 'hover:bg-white/5');
+    } else {
+        elements.textInput.classList.add('hidden');
+        elements.fileInput.classList.remove('hidden');
+        
+        elements.fileTabBtn.classList.add('bg-dark-700', 'text-white', 'shadow-lg');
+        elements.fileTabBtn.classList.remove('text-slate-400', 'hover:text-white', 'hover:bg-white/5');
+        
+        elements.textTabBtn.classList.remove('bg-dark-700', 'text-white', 'shadow-lg');
+        elements.textTabBtn.classList.add('text-slate-400', 'hover:text-white', 'hover:bg-white/5');
+    }
+}
+
+function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    const icon = type === 'success' ? 'check-circle' : 'alert-circle';
+    const colorClass = type === 'success' ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400' : 'border-red-500/50 bg-red-500/10 text-red-400';
+    
+    toast.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl border backdrop-blur-md shadow-xl transform transition-all duration-300 translate-x-full opacity-0 ${colorClass}`;
+    toast.innerHTML = `
+        <i data-lucide="${icon}" class="w-5 h-5"></i>
+        <span class="font-medium text-sm">${message}</span>
+    `;
+    
+    elements.toastContainer.appendChild(toast);
+    lucide.createIcons();
+    
+    // Animate In
+    requestAnimationFrame(() => {
+        toast.classList.remove('translate-x-full', 'opacity-0');
+    });
+    
+    // Remove after 3s
+    setTimeout(() => {
+        toast.classList.add('translate-x-full', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+// ============================================
+// LOGIC IMPLEMENTATION
+// ============================================
+
+async function summarizeNotes() {
+    elements.errorSection.classList.add('hidden');
+    elements.outputSection.classList.add('hidden');
+    elements.loading.classList.remove('hidden');
+    elements.summarizeBtn.disabled = true;
+    
+    try {
+        let response;
+        if (!elements.fileInput.classList.contains('hidden') && elements.fileUpload.files.length > 0) {
+            const formData = new FormData();
+            formData.append('file', elements.fileUpload.files[0]);
+            response = await fetch('/api/summarize', { method: 'POST', body: formData });
+        } else {
+            const text = elements.notesInput.value.trim();
+            if (!text) throw new Error("Please enter text or upload a file.");
+            
+            response = await fetch('/api/summarize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ notes: text })
+            });
+        }
+        
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        
+        // Render Markdown using Marked.js (Assuming loaded via CDN)
+        elements.summaryOutput.innerHTML = marked.parse(data.summary);
+        
+        elements.outputSection.classList.remove('hidden');
+        // Scroll to output
+        elements.outputSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        showToast("Summary generated successfully!");
+        
+    } catch (err) {
+        elements.errorSection.classList.remove('hidden');
+        elements.errorMessage.textContent = err.message;
+        showToast(err.message, 'error');
+    } finally {
+        elements.loading.classList.add('hidden');
+        elements.summarizeBtn.disabled = false;
+    }
+}
+
+function loadNotes() {
+    fetch('/api/notes')
+        .then(r => r.json())
+        .then(notes => {
+            allNotes = notes;
+            renderNotes(notes);
+        });
+}
+
+function renderNotes(notes) {
+    elements.notesGrid.innerHTML = '';
+    
+    if (notes.length === 0) {
+        elements.emptyState.classList.remove('hidden');
+        return;
+    }
+    
+    elements.emptyState.classList.add('hidden');
+    
+    notes.forEach(note => {
+        const card = document.createElement('div');
+        // Truncate summary for preview
+        const preview = note.summary.replace(/<[^>]*>?/gm, '').substring(0, 100) + '...';
+        
+        card.className = "group glass rounded-2xl p-6 hover:bg-white/5 transition-all cursor-pointer border border-white/5 hover:border-primary-500/30 hover:-translate-y-1 relative overflow-hidden";
+        card.innerHTML = `
+            <div class="absolute inset-0 bg-gradient-to-br from-primary-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div class="relative z-10">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="p-2 bg-dark-800 rounded-lg text-primary-400">
+                        <i data-lucide="file-text" class="w-5 h-5"></i>
+                    </div>
+                    <span class="text-xs text-slate-500 font-mono">${new Date(note.created_at).toLocaleDateString()}</span>
+                </div>
+                <h3 class="text-lg font-bold text-white mb-2 line-clamp-1">${note.title || 'Untitled Note'}</h3>
+                <p class="text-slate-400 text-sm mb-4 h-10 overflow-hidden">${preview}</p>
+                <div class="flex gap-2 flex-wrap">
+                    ${note.tags ? note.tags.map(t => `<span class="px-2 py-1 bg-dark-800 rounded-md text-xs text-slate-300 border border-white/5">${t.name}</span>`).join('') : ''}
+                </div>
+            </div>
+        `;
+        
+        card.addEventListener('click', () => openNoteModal(note));
+        elements.notesGrid.appendChild(card);
+    });
+    
+    initializeLucideIcons();
+}
+
+function openNoteModal(note) {
+    currentNoteId = note.id;
+    elements.modalTitle.textContent = note.title || 'Untitled Note';
+    elements.summaryContent.innerHTML = marked.parse(note.summary);
+    elements.originalText.textContent = note.original_content || "No content";
+    
+    elements.noteModal.classList.remove('hidden');
+    elements.noteModal.classList.add('flex'); // Ensure flex display
+    
+    // Reset tabs
+    switchModalTab('summary');
+}
+
+function closeNoteModal() {
+    elements.noteModal.classList.add('hidden');
+    elements.noteModal.classList.remove('flex');
+}
+
+function switchModalTab(tabName) {
+    const tabs = ['summary', 'original', 'chat'];
+    tabs.forEach(t => {
+        const btn = document.getElementById(`${t}Tab`);
+        const content = document.getElementById(`${t}Content`);
+        
+        if (t === tabName) {
+            btn.classList.add('border-primary-500', 'text-white');
+            btn.classList.remove('border-transparent', 'text-slate-400');
+            content.classList.remove('hidden');
+        } else {
+            btn.classList.remove('border-primary-500', 'text-white');
+            btn.classList.add('border-transparent', 'text-slate-400');
+            content.classList.add('hidden');
+        }
+    });
+}
+
+// Drag & Drop Helper
+function setupDragAndDrop() {
+    const dz = elements.dropZone;
+    
+    ['dragenter', 'dragover'].forEach(evt => {
+        dz.addEventListener(evt, (e) => {
+            e.preventDefault();
+            dz.classList.add('border-primary-500', 'bg-primary-500/10');
+        });
+    });
+    
+    ['dragleave', 'drop'].forEach(evt => {
+        dz.addEventListener(evt, (e) => {
+            e.preventDefault();
+            dz.classList.remove('border-primary-500', 'bg-primary-500/10');
+        });
+    });
+    
+    dz.addEventListener('drop', (e) => {
+        const files = e.dataTransfer.files;
+        if(files.length) {
+            elements.fileUpload.files = files;
+            handleFileSelect({target: {files}});
+        }
+    });
+}
+
+function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (file) {
+        elements.fileName.classList.remove('hidden');
+        elements.fileName.innerHTML = `
+            <div class="flex items-center gap-3 p-3 bg-dark-900 rounded-xl border border-white/10">
+                <i data-lucide="file" class="text-primary-400"></i>
+                <div>
+                    <div class="text-sm font-medium text-white">${file.name}</div>
+                    <div class="text-xs text-slate-500">${(file.size/1024/1024).toFixed(2)} MB</div>
+                </div>
+            </div>
+        `;
+        initializeLucideIcons();
+    }
+}
+
+// Debounce Utility
+function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
+
+// Stub for tag functions & Chat (You would implement actual API calls here)
+function filterNotes() {
+    const query = elements.searchInput.value.toLowerCase();
+    const filtered = allNotes.filter(n => 
+        (n.title && n.title.toLowerCase().includes(query)) || 
+        n.summary.toLowerCase().includes(query)
+    );
+    renderNotes(filtered);
+}
+
+// Character Counter
+function updateCharCounter() {
+    const len = elements.notesInput.value.length;
+    elements.charCounter.textContent = len.toLocaleString();
+    if(len > 45000) elements.charCounter.classList.add('text-red-400');
+    else elements.charCounter.classList.remove('text-red-400');
+}

@@ -1,0 +1,723 @@
+// State management
+let currentNoteId = null;
+let allNotes = [];
+let allTags = [];
+
+// DOM Elements
+const elements = {
+    // Navigation
+    newNoteBtn: document.getElementById('newNoteBtn'),
+    myNotesBtn: document.getElementById('myNotesBtn'),
+    
+    // Sections
+    newNoteSection: document.getElementById('newNoteSection'),
+    myNotesSection: document.getElementById('myNotesSection'),
+    
+    // Input tabs
+    textTabBtn: document.getElementById('textTabBtn'),
+    fileTabBtn: document.getElementById('fileTabBtn'),
+    textInput: document.getElementById('textInput'),
+    fileInput: document.getElementById('fileInput'),
+    
+    // Input elements
+    notesInput: document.getElementById('notesInput'),
+    charCounter: document.getElementById('charCounter'),
+    fileUpload: document.getElementById('fileUpload'),
+    fileName: document.getElementById('fileName'),
+    
+    // Buttons
+    summarizeBtn: document.getElementById('summarizeBtn'),
+    copyBtn: document.getElementById('copyBtn'),
+    saveBtn: document.getElementById('saveBtn'),
+    
+    // Output
+    outputSection: document.getElementById('outputSection'),
+    summaryOutput: document.getElementById('summaryOutput'),
+    loading: document.getElementById('loading'),
+    errorSection: document.getElementById('errorSection'),
+    errorMessage: document.getElementById('errorMessage'),
+    
+    // Tags
+    tagSection: document.getElementById('tagSection'),
+    tagSelect: document.getElementById('tagSelect'),
+    addTagBtn: document.getElementById('addTagBtn'),
+    newTagBtn: document.getElementById('newTagBtn'),
+    selectedTags: document.getElementById('selectedTags'),
+    
+    // My Notes
+    searchInput: document.getElementById('searchInput'),
+    tagFilter: document.getElementById('tagFilter'),
+    notesGrid: document.getElementById('notesGrid'),
+    emptyState: document.getElementById('emptyState'),
+    
+    // Modals
+    noteModal: document.getElementById('noteModal'),
+    modalTitle: document.getElementById('modalTitle'),
+    modalTags: document.getElementById('modalTags'),
+    closeModal: document.getElementById('closeModal'),
+    closeModalBtn: document.getElementById('closeModalBtn'),
+    deleteNoteBtn: document.getElementById('deleteNoteBtn'),
+    
+    // Modal tabs
+    summaryTab: document.getElementById('summaryTab'),
+    originalTab: document.getElementById('originalTab'),
+    chatTab: document.getElementById('chatTab'),
+    summaryContent: document.getElementById('summaryContent'),
+    originalContent: document.getElementById('originalContent'),
+    originalText: document.getElementById('originalText'),
+    chatContent: document.getElementById('chatContent'),
+    chatMessages: document.getElementById('chatMessages'),
+    chatInput: document.getElementById('chatInput'),
+    sendChatBtn: document.getElementById('sendChatBtn'),
+    
+    // Create Tag Modal
+    createTagModal: document.getElementById('createTagModal'),
+    newTagName: document.getElementById('newTagName'),
+    newTagColor: document.getElementById('newTagColor'),
+    newTagColorHex: document.getElementById('newTagColorHex'),
+    createTagBtn: document.getElementById('createTagBtn'),
+    cancelTagBtn: document.getElementById('cancelTagBtn')
+};
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    setupEventListeners();
+    loadTags();
+});
+
+// Event Listeners
+function setupEventListeners() {
+    // Navigation
+    elements.newNoteBtn.addEventListener('click', showNewNoteSection);
+    elements.myNotesBtn.addEventListener('click', showMyNotesSection);
+    
+    // Input tabs
+    elements.textTabBtn.addEventListener('click', showTextInput);
+    elements.fileTabBtn.addEventListener('click', showFileInput);
+    
+    // Character counter
+    elements.notesInput.addEventListener('input', updateCharCounter);
+    
+    // File upload
+    elements.fileUpload.addEventListener('change', handleFileSelect);
+    
+    // Main actions
+    elements.summarizeBtn.addEventListener('click', summarizeNotes);
+    elements.copyBtn.addEventListener('click', copySummary);
+    elements.saveBtn.addEventListener('click', saveNote);
+    
+    // Tags
+    elements.addTagBtn.addEventListener('click', addTagToNote);
+    elements.newTagBtn.addEventListener('click', () => elements.createTagModal.classList.remove('hidden'));
+    elements.createTagBtn.addEventListener('click', createNewTag);
+    elements.cancelTagBtn.addEventListener('click', () => elements.createTagModal.classList.add('hidden'));
+    
+    // Tag color sync
+    elements.newTagColor.addEventListener('input', (e) => {
+        elements.newTagColorHex.value = e.target.value;
+    });
+    elements.newTagColorHex.addEventListener('input', (e) => {
+        elements.newTagColor.value = e.target.value;
+    });
+    
+    // Search and filter
+    elements.searchInput.addEventListener('input', debounce(filterNotes, 300));
+    elements.tagFilter.addEventListener('change', filterNotes);
+    
+    // Modal
+    elements.closeModal.addEventListener('click', closeNoteModal);
+    elements.closeModalBtn.addEventListener('click', closeNoteModal);
+    elements.deleteNoteBtn.addEventListener('click', deleteNote);
+    
+    // Modal tabs
+    elements.summaryTab.addEventListener('click', () => showModalTab('summary'));
+    elements.originalTab.addEventListener('click', () => showModalTab('original'));
+    elements.chatTab.addEventListener('click', () => showModalTab('chat'));
+    
+    // Chat
+    elements.sendChatBtn.addEventListener('click', sendChatMessage);
+    elements.chatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendChatMessage();
+    });
+    
+    // Close modal on background click
+    elements.noteModal.addEventListener('click', (e) => {
+        if (e.target === elements.noteModal) closeNoteModal();
+    });
+}
+
+// Navigation
+function showNewNoteSection() {
+    elements.newNoteSection.classList.remove('hidden');
+    elements.myNotesSection.classList.add('hidden');
+    elements.newNoteBtn.classList.add('bg-primary-500', 'text-white');
+    elements.newNoteBtn.classList.remove('text-slate-300');
+    elements.myNotesBtn.classList.remove('bg-primary-500', 'text-white');
+    elements.myNotesBtn.classList.add('text-slate-300');
+}
+
+function showMyNotesSection() {
+    elements.myNotesSection.classList.remove('hidden');
+    elements.newNoteSection.classList.add('hidden');
+    elements.myNotesBtn.classList.add('bg-primary-500', 'text-white');
+    elements.myNotesBtn.classList.remove('text-slate-300');
+    elements.newNoteBtn.classList.remove('bg-primary-500', 'text-white');
+    elements.newNoteBtn.classList.add('text-slate-300');
+    loadNotes();
+}
+
+// Input tabs
+function showTextInput() {
+    elements.textInput.classList.remove('hidden');
+    elements.fileInput.classList.add('hidden');
+    elements.textTabBtn.classList.add('bg-primary-500', 'text-white');
+    elements.textTabBtn.classList.remove('text-slate-300', 'hover:bg-slate-600');
+    elements.fileTabBtn.classList.remove('bg-primary-500', 'text-white');
+    elements.fileTabBtn.classList.add('text-slate-300', 'hover:bg-slate-600');
+}
+
+function showFileInput() {
+    elements.fileInput.classList.remove('hidden');
+    elements.textInput.classList.add('hidden');
+    elements.fileTabBtn.classList.add('bg-primary-500', 'text-white');
+    elements.fileTabBtn.classList.remove('text-slate-300', 'hover:bg-slate-600');
+    elements.textTabBtn.classList.remove('bg-primary-500', 'text-white');
+    elements.textTabBtn.classList.add('text-slate-300', 'hover:bg-slate-600');
+}
+
+// Character counter
+function updateCharCounter() {
+    const count = elements.notesInput.value.length;
+    elements.charCounter.textContent = count.toLocaleString();
+    
+    if (count > 50000) {
+        elements.charCounter.classList.add('text-red-500');
+    } else {
+        elements.charCounter.classList.remove('text-red-500');
+    }
+}
+
+// File handling
+function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (file) {
+        elements.fileName.textContent = `Selected: ${file.name}`;
+    }
+}
+
+// Summarize notes
+async function summarizeNotes() {
+    hideError();
+    elements.outputSection.classList.add('hidden');
+    elements.loading.classList.remove('hidden');
+    elements.summarizeBtn.disabled = true;
+    
+    try {
+        let response;
+        
+        // Check if using file upload
+        if (!elements.fileInput.classList.contains('hidden') && elements.fileUpload.files.length > 0) {
+            const formData = new FormData();
+            formData.append('file', elements.fileUpload.files[0]);
+            
+            response = await fetch('/api/summarize', {
+                method: 'POST',
+                body: formData
+            });
+        } else {
+            // Use text input
+            const notes = elements.notesInput.value.trim();
+            
+            if (!notes) {
+                showError('Please enter some notes to summarize');
+                return;
+            }
+            
+            response = await fetch('/api/summarize', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ notes })
+            });
+        }
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            showError(data.error || 'An error occurred');
+            return;
+        }
+        
+        // Display summary
+        elements.summaryOutput.innerHTML = formatSummary(data.summary);
+        elements.outputSection.classList.remove('hidden');
+        currentNoteId = data.note_id;
+        
+        // Show tag section after save
+        elements.tagSection.classList.add('hidden');
+        
+    } catch (error) {
+        showError('Network error. Please check your connection.');
+        console.error('Error:', error);
+    } finally {
+        elements.loading.classList.add('hidden');
+        elements.summarizeBtn.disabled = false;
+    }
+}
+
+// Format summary with better styling
+function formatSummary(text) {
+    // Convert markdown-style bullets to HTML
+    return text
+        .split('\n')
+        .map(line => {
+            line = line.trim();
+            if (line.startsWith('•') || line.startsWith('-') || line.startsWith('*')) {
+                return `<p class="ml-4 mb-2">• ${line.substring(1).trim()}</p>`;
+            } else if (line.startsWith('#')) {
+                const level = line.match(/^#+/)[0].length;
+                const content = line.replace(/^#+\s*/, '');
+                return `<h${level} class="font-bold mt-4 mb-2">${content}</h${level}>`;
+            } else if (line) {
+                return `<p class="mb-2">${line}</p>`;
+            }
+            return '';
+        })
+        .join('');
+}
+
+// Copy summary
+async function copySummary() {
+    try {
+        const text = elements.summaryOutput.innerText;
+        await navigator.clipboard.writeText(text);
+        
+        const originalText = elements.copyBtn.innerHTML;
+        elements.copyBtn.innerHTML = '<i class="fas fa-check mr-2"></i>Copied!';
+        elements.copyBtn.classList.add('bg-green-600');
+        
+        setTimeout(() => {
+            elements.copyBtn.innerHTML = originalText;
+            elements.copyBtn.classList.remove('bg-green-600');
+        }, 2000);
+    } catch (error) {
+        showError('Failed to copy to clipboard');
+    }
+}
+
+// Save note
+async function saveNote() {
+    elements.tagSection.classList.remove('hidden');
+    const originalText = elements.saveBtn.innerHTML;
+    elements.saveBtn.innerHTML = '<i class="fas fa-check mr-2"></i>Saved!';
+    elements.saveBtn.classList.remove('bg-green-600');
+    elements.saveBtn.classList.add('bg-green-700');
+    elements.saveBtn.disabled = true;
+    
+    setTimeout(() => {
+        elements.saveBtn.innerHTML = originalText;
+        elements.saveBtn.classList.add('bg-green-600');
+        elements.saveBtn.classList.remove('bg-green-700');
+    }, 2000);
+}
+
+// Tags
+async function loadTags() {
+    try {
+        const response = await fetch('/api/tags');
+        const data = await response.json();
+        allTags = data.tags;
+        
+        // Update tag select
+        elements.tagSelect.innerHTML = '<option value="">Select a tag...</option>';
+        elements.tagFilter.innerHTML = '<option value="">All Tags</option>';
+        
+        allTags.forEach(tag => {
+            const option = new Option(tag.name, tag.id);
+            elements.tagSelect.add(option.cloneNode(true));
+            elements.tagFilter.add(option);
+        });
+    } catch (error) {
+        console.error('Error loading tags:', error);
+    }
+}
+
+async function createNewTag() {
+    const name = elements.newTagName.value.trim();
+    const color = elements.newTagColorHex.value;
+    
+    if (!name) {
+        alert('Please enter a tag name');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/tags', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ name, color })
+        });
+        
+        if (!response.ok) {
+            const data = await response.json();
+            alert(data.error || 'Failed to create tag');
+            return;
+        }
+        
+        elements.createTagModal.classList.add('hidden');
+        elements.newTagName.value = '';
+        elements.newTagColorHex.value = '#667eea';
+        elements.newTagColor.value = '#667eea';
+        
+        await loadTags();
+    } catch (error) {
+        alert('Network error. Please try again.');
+        console.error('Error:', error);
+    }
+}
+
+async function addTagToNote() {
+    const tagId = parseInt(elements.tagSelect.value);
+    
+    if (!tagId || !currentNoteId) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/notes/${currentNoteId}/tags`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ tag_id: tagId })
+        });
+        
+        if (!response.ok) {
+            const data = await response.json();
+            alert(data.error || 'Failed to add tag');
+            return;
+        }
+        
+        // Refresh note to show new tag
+        const noteResponse = await fetch(`/api/notes/${currentNoteId}`);
+        const noteData = await noteResponse.json();
+        displayNoteTags(noteData.tags);
+        
+    } catch (error) {
+        console.error('Error adding tag:', error);
+    }
+}
+
+function displayNoteTags(tags) {
+    elements.selectedTags.innerHTML = '';
+    
+    tags.forEach(tag => {
+        const tagEl = document.createElement('span');
+        tagEl.className = 'inline-flex items-center px-3 py-1 rounded-full text-sm';
+        tagEl.style.backgroundColor = tag.color + '33';
+        tagEl.style.color = tag.color;
+        tagEl.innerHTML = `
+            ${tag.name}
+            <button onclick="removeTag(${tag.id})" class="ml-2 hover:text-red-400">
+                <i class="fas fa-times text-xs"></i>
+            </button>
+        `;
+        elements.selectedTags.appendChild(tagEl);
+    });
+}
+
+async function removeTag(tagId) {
+    if (!currentNoteId) return;
+    
+    try {
+        await fetch(`/api/notes/${currentNoteId}/tags`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ tag_id: tagId })
+        });
+        
+        const noteResponse = await fetch(`/api/notes/${currentNoteId}`);
+        const noteData = await noteResponse.json();
+        displayNoteTags(noteData.tags);
+        
+    } catch (error) {
+        console.error('Error removing tag:', error);
+    }
+}
+
+// My Notes
+async function loadNotes() {
+    try {
+        const searchTerm = elements.searchInput.value;
+        const tagId = elements.tagFilter.value;
+        
+        let url = '/api/notes?';
+        if (searchTerm) url += `search=${encodeURIComponent(searchTerm)}&`;
+        if (tagId) url += `tag_id=${tagId}&`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        allNotes = data.notes;
+        
+        displayNotes(allNotes);
+    } catch (error) {
+        console.error('Error loading notes:', error);
+    }
+}
+
+function displayNotes(notes) {
+    elements.notesGrid.innerHTML = '';
+    
+    if (notes.length === 0) {
+        elements.emptyState.classList.remove('hidden');
+        return;
+    }
+    
+    elements.emptyState.classList.add('hidden');
+    
+    notes.forEach(note => {
+        const noteCard = createNoteCard(note);
+        elements.notesGrid.appendChild(noteCard);
+    });
+}
+
+function createNoteCard(note) {
+    const card = document.createElement('div');
+    card.className = 'bg-slate-900/50 border border-slate-700 rounded-xl p-5 hover:border-primary-500 transition cursor-pointer';
+    card.onclick = () => openNoteModal(note.id);
+    
+    const date = new Date(note.created_at).toLocaleDateString();
+    
+    card.innerHTML = `
+        <h3 class="font-semibold text-lg mb-2 truncate">${note.title}</h3>
+        <p class="text-slate-400 text-sm mb-3 line-clamp-2">${note.summary.substring(0, 100)}...</p>
+        <div class="flex items-center justify-between">
+            <span class="text-xs text-slate-500">
+                <i class="far fa-calendar mr-1"></i>${date}
+            </span>
+            <div class="flex gap-1">
+                ${note.tags.map(tag => `
+                    <span class="px-2 py-1 rounded text-xs" style="background-color: ${tag.color}33; color: ${tag.color}">
+                        ${tag.name}
+                    </span>
+                `).join('')}
+            </div>
+        </div>
+    `;
+    
+    return card;
+}
+
+function filterNotes() {
+    loadNotes();
+}
+
+// Note Modal
+async function openNoteModal(noteId) {
+    try {
+        const response = await fetch(`/api/notes/${noteId}`);
+        const note = await response.json();
+        
+        currentNoteId = noteId;
+        elements.modalTitle.textContent = note.title;
+        elements.summaryContent.innerHTML = formatSummary(note.summary);
+        elements.originalText.textContent = note.original_content;
+        
+        // Display tags
+        elements.modalTags.innerHTML = note.tags.map(tag => `
+            <span class="px-3 py-1 rounded-full text-sm" style="background-color: ${tag.color}33; color: ${tag.color}">
+                ${tag.name}
+            </span>
+        `).join('');
+        
+        // Load chat history
+        await loadChatHistory(noteId);
+        
+        // Show modal
+        showModalTab('summary');
+        elements.noteModal.classList.remove('hidden');
+        
+    } catch (error) {
+        console.error('Error opening note:', error);
+        alert('Failed to load note');
+    }
+}
+
+function closeNoteModal() {
+    elements.noteModal.classList.add('hidden');
+    currentNoteId = null;
+}
+
+function showModalTab(tab) {
+    // Reset all tabs
+    [elements.summaryTab, elements.originalTab, elements.chatTab].forEach(btn => {
+        btn.classList.remove('bg-primary-500', 'text-white');
+        btn.classList.add('text-slate-300', 'hover:bg-slate-600');
+    });
+    
+    [elements.summaryContent, elements.originalContent, elements.chatContent].forEach(content => {
+        content.classList.add('hidden');
+    });
+    
+    // Activate selected tab
+    if (tab === 'summary') {
+        elements.summaryTab.classList.add('bg-primary-500', 'text-white');
+        elements.summaryTab.classList.remove('text-slate-300', 'hover:bg-slate-600');
+        elements.summaryContent.classList.remove('hidden');
+    } else if (tab === 'original') {
+        elements.originalTab.classList.add('bg-primary-500', 'text-white');
+        elements.originalTab.classList.remove('text-slate-300', 'hover:bg-slate-600');
+        elements.originalContent.classList.remove('hidden');
+    } else if (tab === 'chat') {
+        elements.chatTab.classList.add('bg-primary-500', 'text-white');
+        elements.chatTab.classList.remove('text-slate-300', 'hover:bg-slate-600');
+        elements.chatContent.classList.remove('hidden');
+    }
+}
+
+// Chat
+async function loadChatHistory(noteId) {
+    try {
+        const response = await fetch(`/api/notes/${noteId}/chat`);
+        const data = await response.json();
+        
+        elements.chatMessages.innerHTML = '';
+        
+        if (data.messages.length === 0) {
+            elements.chatMessages.innerHTML = '<p class="text-slate-400 text-center py-8">No chat history yet. Ask a question to start!</p>';
+            return;
+        }
+        
+        data.messages.forEach(msg => {
+            addChatMessage(msg.role, msg.content);
+        });
+        
+        elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+        
+    } catch (error) {
+        console.error('Error loading chat:', error);
+    }
+}
+
+async function sendChatMessage() {
+    const question = elements.chatInput.value.trim();
+    
+    if (!question || !currentNoteId) return;
+    
+    elements.chatInput.value = '';
+    elements.sendChatBtn.disabled = true;
+    
+    // Add user message
+    addChatMessage('user', question);
+    
+    // Add loading indicator
+    const loadingMsg = document.createElement('div');
+    loadingMsg.className = 'flex justify-start';
+    loadingMsg.innerHTML = `
+        <div class="bg-slate-700 rounded-lg px-4 py-3 max-w-[80%]">
+            <div class="spinner" style="width: 20px; height: 20px; border-width: 2px;"></div>
+        </div>
+    `;
+    elements.chatMessages.appendChild(loadingMsg);
+    elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+    
+    try {
+        const response = await fetch(`/api/notes/${currentNoteId}/chat`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ question })
+        });
+        
+        const data = await response.json();
+        
+        // Remove loading indicator
+        loadingMsg.remove();
+        
+        if (!response.ok) {
+            alert(data.error || 'Failed to send message');
+            return;
+        }
+        
+        // Add AI response
+        addChatMessage('assistant', data.response);
+        
+    } catch (error) {
+        console.error('Error sending chat:', error);
+        alert('Network error. Please try again.');
+        loadingMsg.remove();
+    } finally {
+        elements.sendChatBtn.disabled = false;
+    }
+}
+
+function addChatMessage(role, content) {
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
+    
+    const bgColor = role === 'user' ? 'bg-primary-500' : 'bg-slate-700';
+    
+    msgDiv.innerHTML = `
+        <div class="${bgColor} rounded-lg px-4 py-3 max-w-[80%]">
+            <p class="text-sm whitespace-pre-wrap">${content}</p>
+        </div>
+    `;
+    
+    elements.chatMessages.appendChild(msgDiv);
+    elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+}
+
+// Delete note
+async function deleteNote() {
+    if (!currentNoteId) return;
+    
+    if (!confirm('Are you sure you want to delete this note?')) return;
+    
+    try {
+        const response = await fetch(`/api/notes/${currentNoteId}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            alert('Failed to delete note');
+            return;
+        }
+        
+        closeNoteModal();
+        loadNotes();
+        
+    } catch (error) {
+        console.error('Error deleting note:', error);
+        alert('Network error. Please try again.');
+    }
+}
+
+// Error handling
+function showError(message) {
+    elements.errorMessage.textContent = message;
+    elements.errorSection.classList.remove('hidden');
+    elements.loading.classList.add('hidden');
+}
+
+function hideError() {
+    elements.errorSection.classList.add('hidden');
+}
+
+// Utility functions
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
